@@ -32,21 +32,6 @@ type Message = {
   time: string;
 };
 
-type Command = {
-  icon: string;
-  label: string;
-  action: string;
-};
-
-const COMMANDS: Command[] = [
-  { icon: "Volume2", label: "Громкость", action: "volume" },
-  { icon: "Wifi", label: "Сеть", action: "network" },
-  { icon: "Sun", label: "Яркость", action: "brightness" },
-  { icon: "Shield", label: "Защита", action: "shield" },
-  { icon: "BarChart2", label: "Статус", action: "status" },
-  { icon: "Settings", label: "Система", action: "system" },
-];
-
 const JARVIS_RESPONSES: Record<string, string> = {
   volume: "Управление звуком активировано. Текущий уровень: 75%.",
   network: "Все сети в норме. Пинг: 12ms. Безопасных подключений: 3.",
@@ -57,80 +42,26 @@ const JARVIS_RESPONSES: Record<string, string> = {
   default: "Принято. Обрабатываю ваш запрос...",
 };
 
-const QUICK_PHRASES = ["Привет, Джарвис", "Статус систем", "Анализ угроз", "Диагностика"];
-
-function WaveVisualizer({ active }: { active: boolean }) {
-  const bars = 28;
-  return (
-    <div className="flex items-center justify-center gap-[3px] h-16">
-      {Array.from({ length: bars }).map((_, i) => (
-        <div
-          key={i}
-          className="wave-bar"
-          style={{
-            animationDelay: `${(i * 0.07) % 1.4}s`,
-            animationPlayState: active ? "running" : "paused",
-            opacity: active ? 1 : 0.25,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function OrbCore({ listening, thinking }: { listening: boolean; thinking: boolean }) {
-  return (
-    <div className="orb-wrapper">
-      <div className={`orb-ring orb-ring-3 ${listening || thinking ? "orb-ring-active" : ""}`} />
-      <div className={`orb-ring orb-ring-2 ${listening || thinking ? "orb-ring-active" : ""}`} />
-      <div className={`orb-ring orb-ring-1 ${listening || thinking ? "orb-ring-active" : ""}`} />
-      <div className={`orb-core ${thinking ? "orb-thinking" : listening ? "orb-listening" : ""}`}>
-        <div className="orb-inner">
-          <span className="orb-letter">J</span>
-        </div>
-        <div className="orb-glare" />
-      </div>
-    </div>
-  );
-}
-
-function StatusBadge({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div className="status-badge">
-      <div className="status-dot" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
-      <div>
-        <div className="status-label">{label}</div>
-        <div className="status-value">{value}</div>
-      </div>
-    </div>
-  );
-}
+const SUGGESTIONS = [
+  "Привет, Джарвис",
+  "Статус систем",
+  "Анализ угроз",
+  "Запусти диагностику",
+];
 
 export default function Index() {
   const [listening, setListening] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [interimText, setInterimText] = useState("");
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 0,
-      role: "jarvis",
-      text: "Добро пожаловать. Я Джарвис — ваш персональный ИИ-ассистент. Нажмите на микрофон или введите команду.",
-      time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [time, setTime] = useState(new Date());
   const chatRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
   useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       setSpeechSupported(true);
       const rec = new SpeechRecognition();
@@ -148,16 +79,19 @@ export default function Index() {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, thinking]);
 
   const addMessage = useCallback((role: "user" | "jarvis", text: string) => {
     setMessages((prev) => [
       ...prev,
       {
-        id: Date.now(),
+        id: Date.now() + Math.random(),
         role,
         text,
-        time: new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+        time: new Date().toLocaleTimeString("ru-RU", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       },
     ]);
   }, []);
@@ -189,7 +123,10 @@ export default function Index() {
     }
 
     if (!speechSupported || !rec) {
-      addMessage("jarvis", "Голосовой ввод не поддерживается вашим браузером. Используйте Chrome или Edge.");
+      addMessage(
+        "jarvis",
+        "Голосовой ввод не поддерживается вашим браузером. Используйте Chrome или Edge."
+      );
       return;
     }
 
@@ -216,7 +153,10 @@ export default function Index() {
       setListening(false);
       setInterimText("");
       if (e.error === "not-allowed") {
-        addMessage("jarvis", "Доступ к микрофону запрещён. Разрешите доступ в настройках браузера.");
+        addMessage(
+          "jarvis",
+          "Доступ к микрофону запрещён. Разрешите доступ в настройках браузера."
+        );
       } else if (e.error !== "aborted") {
         addMessage("jarvis", `Ошибка распознавания: ${e.error}. Попробуйте ещё раз.`);
       }
@@ -246,189 +186,115 @@ export default function Index() {
     if (e.key === "Enter") handleSend();
   };
 
-  const handleQuickCommand = (cmd: Command) => {
-    const response = JARVIS_RESPONSES[cmd.action] || JARVIS_RESPONSES.default;
-    addMessage("user", `Команда: ${cmd.label}`);
-    setThinking(true);
-    setTimeout(() => {
-      addMessage("jarvis", response);
-      setThinking(false);
-    }, 900);
-  };
-
-  const timeStr = time.toLocaleTimeString("ru-RU", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-  const dateStr = time.toLocaleDateString("ru-RU", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  const isEmpty = messages.length === 0;
 
   return (
-    <div className="jarvis-root">
-      <div className="bg-grid" />
-      <div className="bg-glow bg-glow-1" />
-      <div className="bg-glow bg-glow-2" />
-      <div className="bg-glow bg-glow-3" />
-      <div className="scan-line" />
-
-      <div className="jarvis-layout">
-        {/* ═══ ЛЕВАЯ ПАНЕЛЬ ═══ */}
-        <aside className="left-panel">
-          <div className="panel-header">
-            <div className="logo-mark">J</div>
-            <div>
-              <div className="logo-title">JARVIS</div>
-              <div className="logo-sub">Система v7.4.1</div>
+    <div className="chat-root">
+      {/* Header */}
+      <header className="chat-header">
+        <div className="chat-brand">
+          <div className="chat-logo">J</div>
+          <div>
+            <div className="chat-brand-name">Jarvis</div>
+            <div className="chat-brand-status">
+              <span className="chat-online-dot" />
+              {thinking ? "печатает…" : listening ? "слушает…" : "в сети"}
             </div>
           </div>
+        </div>
+      </header>
 
-          <div className="time-block">
-            <div className="time-display">{timeStr}</div>
-            <div className="date-display">{dateStr}</div>
-          </div>
-
-          <div className="section-title">СИСТЕМНЫЙ СТАТУС</div>
-          <div className="status-grid">
-            <StatusBadge label="ЦПУ" value="23%" color="#00f5ff" />
-            <StatusBadge label="Память" value="4.2 ГБ" color="#a855f7" />
-            <StatusBadge label="Сеть" value="Онлайн" color="#10b981" />
-            <StatusBadge label="Защита" value="Активна" color="#f59e0b" />
-          </div>
-
-          <div className="section-title">БЫСТРЫЕ КОМАНДЫ</div>
-          <div className="commands-grid">
-            {COMMANDS.map((cmd) => (
-              <button
-                key={cmd.action}
-                className="cmd-btn"
-                onClick={() => handleQuickCommand(cmd)}
-              >
-                <Icon name={cmd.icon} size={16} />
-                <span>{cmd.label}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="section-title" style={{ marginTop: "auto", paddingTop: "1rem" }}>АКТИВНОСТЬ</div>
-          <div className="activity-bar">
-            {Array.from({ length: 20 }).map((_, i) => (
-              <div
-                key={i}
-                className="activity-tick"
-                style={{
-                  height: `${[12,20,8,28,16,24,10,32,18,14,26,8,22,30,12,18,24,10,28,16][i]}px`,
-                  opacity: i > 14 ? 0.25 : 1,
-                }}
-              />
-            ))}
-          </div>
-        </aside>
-
-        {/* ═══ ЦЕНТР ═══ */}
-        <main className="center-panel">
-          <div className="center-top-label">ГОЛОСОВОЙ АССИСТЕНТ</div>
-
-          <div className="orb-section">
-            <OrbCore listening={listening} thinking={thinking} />
-            <div className={`orb-status ${listening ? "orb-status--listening" : thinking ? "orb-status--thinking" : ""}`}>
-              {thinking ? "АНАЛИЗИРУЮ..." : listening ? "СЛУШАЮ..." : "ГОТОВ"}
+      {/* Messages */}
+      <main className="chat-main" ref={chatRef}>
+        <div className="chat-container">
+          {isEmpty ? (
+            <div className="chat-empty">
+              <div className="chat-empty-orb">J</div>
+              <h1 className="chat-empty-title">Чем могу помочь?</h1>
+              <p className="chat-empty-sub">
+                Задайте вопрос голосом или текстом — я слушаю.
+              </p>
+              <div className="chat-suggestions">
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    className="chat-suggestion"
+                    onClick={() => processCommand(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-
-          <WaveVisualizer active={listening || thinking} />
-
-          {interimText && (
-            <div className="interim-text">
-              <span className="interim-dot" />
-              «{interimText}»
-            </div>
+          ) : (
+            <>
+              {messages.map((m) => (
+                <div key={m.id} className={`msg-row msg-row--${m.role}`}>
+                  {m.role === "jarvis" && <div className="msg-avatar">J</div>}
+                  <div className="msg-content">
+                    <div className={`msg-bubble msg-bubble--${m.role}`}>
+                      {m.text}
+                    </div>
+                    <div className="msg-time">{m.time}</div>
+                  </div>
+                </div>
+              ))}
+              {thinking && (
+                <div className="msg-row msg-row--jarvis">
+                  <div className="msg-avatar">J</div>
+                  <div className="msg-content">
+                    <div className="msg-bubble msg-bubble--jarvis msg-typing">
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
+        </div>
+      </main>
 
-          <div className="quick-phrases">
-            {QUICK_PHRASES.map((p) => (
-              <button key={p} className="phrase-chip" onClick={() => processCommand(p)}>
-                {p}
-              </button>
-            ))}
+      {/* Composer */}
+      <footer className="chat-composer">
+        {interimText && (
+          <div className="composer-interim">
+            <span className="composer-interim-dot" />«{interimText}»
           </div>
-
+        )}
+        <div className="composer-box">
+          <input
+            className="composer-input"
+            placeholder="Сообщение Джарвису…"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKey}
+          />
           <button
-            className={`mic-btn ${listening ? "mic-btn--active" : ""} ${thinking ? "mic-btn--thinking" : ""}`}
+            className={`composer-mic ${listening ? "composer-mic--active" : ""}`}
             onClick={handleMic}
+            title="Голосовой ввод"
           >
-            <Icon name={listening ? "MicOff" : "Mic"} size={28} />
+            <Icon name={listening ? "MicOff" : "Mic"} size={20} />
           </button>
-          <div className="mic-hint">
-            {listening
-              ? "Говорите... нажмите чтобы остановить"
-              : speechSupported
-              ? "Нажмите для голосового ввода"
-              : "Голосовой ввод недоступен в этом браузере"}
-          </div>
-
-          <div className="text-input-row">
-            <input
-              className="jarvis-input"
-              placeholder="Введите команду для Джарвиса..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKey}
-            />
-            <button className="send-btn" onClick={handleSend}>
-              <Icon name="Send" size={16} />
-            </button>
-          </div>
-        </main>
-
-        {/* ═══ ПРАВАЯ ПАНЕЛЬ ═══ */}
-        <aside className="right-panel">
-          <div className="panel-header">
-            <Icon name="MessageSquare" size={15} />
-            <div className="logo-title" style={{ fontSize: "12px", letterSpacing: "0.15em" }}>ЛОГ ДИАЛОГА</div>
-          </div>
-
-          <div className="chat-log" ref={chatRef}>
-            {messages.map((m) => (
-              <div key={m.id} className={`chat-msg chat-msg--${m.role}`}>
-                <div className="chat-meta">
-                  <span className="chat-who">{m.role === "jarvis" ? "JARVIS" : "ВЫ"}</span>
-                  <span className="chat-time">{m.time}</span>
-                </div>
-                <div className="chat-bubble">{m.text}</div>
-              </div>
-            ))}
-            {thinking && (
-              <div className="chat-msg chat-msg--jarvis">
-                <div className="chat-meta">
-                  <span className="chat-who">JARVIS</span>
-                </div>
-                <div className="chat-bubble chat-thinking">
-                  <span /><span /><span />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="section-title" style={{ marginTop: "auto", paddingTop: "1rem" }}>ПАРАМЕТРЫ</div>
-          <div className="params-list">
-            {[
-              { name: "Голос", val: "RU-Мужской" },
-              { name: "Чувствит.", val: "Высокая" },
-              { name: "Протокол", val: "TLS 1.3" },
-              { name: "Режим", val: "Активный" },
-            ].map(({ name, val }) => (
-              <div key={name} className="param-row">
-                <span className="param-name">{name}</span>
-                <span className="param-val">{val}</span>
-              </div>
-            ))}
-          </div>
-        </aside>
-      </div>
+          <button
+            className="composer-send"
+            onClick={handleSend}
+            disabled={!input.trim()}
+            title="Отправить"
+          >
+            <Icon name="ArrowUp" size={20} />
+          </button>
+        </div>
+        <div className="composer-hint">
+          {listening
+            ? "Говорите… нажмите на микрофон, чтобы остановить"
+            : speechSupported
+            ? "Джарвис может слышать вашу речь — нажмите на микрофон"
+            : "Голосовой ввод недоступен в этом браузере"}
+        </div>
+      </footer>
     </div>
   );
 }
