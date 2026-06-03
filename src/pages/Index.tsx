@@ -1,6 +1,30 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 
+// Web Speech API types
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+interface SpeechRecognitionInstance extends EventTarget {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start(): void;
+  stop(): void;
+  onresult: ((e: SpeechRecognitionEvent) => void) | null;
+  onerror: ((e: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+}
+declare global {
+  interface Window {
+    SpeechRecognition: new () => SpeechRecognitionInstance;
+    webkitSpeechRecognition: new () => SpeechRecognitionInstance;
+  }
+}
+
 type Message = {
   id: number;
   role: "user" | "jarvis";
@@ -85,6 +109,8 @@ function StatusBadge({ label, value, color }: { label: string; value: string; co
 export default function Index() {
   const [listening, setListening] = useState(false);
   const [thinking, setThinking] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [interimText, setInterimText] = useState("");
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 0,
@@ -96,10 +122,26 @@ export default function Index() {
   const [input, setInput] = useState("");
   const [time, setTime] = useState(new Date());
   const chatRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      setSpeechSupported(true);
+      const rec = new SpeechRecognition();
+      rec.lang = "ru-RU";
+      rec.continuous = false;
+      rec.interimResults = true;
+      recognitionRef.current = rec;
+    }
+    return () => {
+      recognitionRef.current?.stop();
+    };
   }, []);
 
   useEffect(() => {
@@ -136,18 +178,62 @@ export default function Index() {
     [addMessage]
   );
 
-  const handleMic = () => {
+  const handleMic = useCallback(() => {
+    const rec = recognitionRef.current;
+
     if (listening) {
+      rec?.stop();
       setListening(false);
-      processCommand("Голосовая команда: «Статус систем»");
+      setInterimText("");
       return;
     }
-    setListening(true);
-    setTimeout(() => {
+
+    if (!speechSupported || !rec) {
+      addMessage("jarvis", "Голосовой ввод не поддерживается вашим браузером. Используйте Chrome или Edge.");
+      return;
+    }
+
+    rec.onresult = (e: SpeechRecognitionEvent) => {
+      let interim = "";
+      let final = "";
+      for (let i = e.results.length - 1; i >= 0; i--) {
+        if (e.results[i].isFinal) {
+          final = e.results[i][0].transcript;
+          break;
+        } else {
+          interim = e.results[i][0].transcript;
+        }
+      }
+      if (interim) setInterimText(interim);
+      if (final) {
+        setInterimText("");
+        setListening(false);
+        processCommand(final);
+      }
+    };
+
+    rec.onerror = (e: SpeechRecognitionErrorEvent) => {
       setListening(false);
-      processCommand("Голосовая команда: «Статус систем»");
-    }, 3000);
-  };
+      setInterimText("");
+      if (e.error === "not-allowed") {
+        addMessage("jarvis", "Доступ к микрофону запрещён. Разрешите доступ в настройках браузера.");
+      } else if (e.error !== "aborted") {
+        addMessage("jarvis", `Ошибка распознавания: ${e.error}. Попробуйте ещё раз.`);
+      }
+    };
+
+    rec.onend = () => {
+      setListening(false);
+      setInterimText("");
+    };
+
+    try {
+      rec.start();
+      setListening(true);
+    } catch {
+      addMessage("jarvis", "Не удалось запустить микрофон. Попробуйте ещё раз.");
+    }
+  }, [listening, speechSupported, addMessage, processCommand]);
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -255,6 +341,13 @@ export default function Index() {
 
           <WaveVisualizer active={listening || thinking} />
 
+          {interimText && (
+            <div className="interim-text">
+              <span className="interim-dot" />
+              «{interimText}»
+            </div>
+          )}
+
           <div className="quick-phrases">
             {QUICK_PHRASES.map((p) => (
               <button key={p} className="phrase-chip" onClick={() => processCommand(p)}>
@@ -270,7 +363,11 @@ export default function Index() {
             <Icon name={listening ? "MicOff" : "Mic"} size={28} />
           </button>
           <div className="mic-hint">
-            {listening ? "Нажмите чтобы остановить" : "Нажмите для голосового ввода"}
+            {listening
+              ? "Говорите... нажмите чтобы остановить"
+              : speechSupported
+              ? "Нажмите для голосового ввода"
+              : "Голосовой ввод недоступен в этом браузере"}
           </div>
 
           <div className="text-input-row">

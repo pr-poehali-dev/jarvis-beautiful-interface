@@ -783,6 +783,40 @@
   letter-spacing: 0.08em;
 }
 
+/* ════════════════ INTERIM TEXT ════════════════ */
+.interim-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: "Exo 2", sans-serif;
+  font-size: 13px;
+  color: var(--j-cyan);
+  font-style: italic;
+  opacity: 0.85;
+  animation: fade-in-up 0.2s ease;
+  text-align: center;
+  max-width: 400px;
+}
+.interim-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--j-cyan);
+  box-shadow: 0 0 8px var(--j-cyan);
+  animation: pulse-dot 0.8s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 0.85;
+    transform: translateY(0);
+  }
+}
+
 /* ════════════════ RESPONSIVE ════════════════ */
 @media (max-width: 900px) {
   .jarvis-layout {
