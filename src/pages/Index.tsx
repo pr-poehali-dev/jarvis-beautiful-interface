@@ -56,8 +56,13 @@ export default function Index() {
   const [interimText, setInterimText] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [dark, setDark] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark-theme", dark);
+  }, [dark]);
 
   useEffect(() => {
     const SpeechRecognition =
@@ -202,6 +207,13 @@ export default function Index() {
             </div>
           </div>
         </div>
+        <button
+          className="theme-toggle"
+          onClick={() => setDark((d) => !d)}
+          title={dark ? "Светлая тема" : "Тёмная тема"}
+        >
+          <Icon name={dark ? "Sun" : "Moon"} size={18} />
+        </button>
       </header>
 
       {/* Messages */}
